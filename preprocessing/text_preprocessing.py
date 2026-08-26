@@ -1,8 +1,8 @@
 """
 Text Preprocessing Pipeline — Coursera Course Reviews
 ========================================================
-Input : coursera_reviews_sample_BEFORE.csv  (raw reviews, 9000 rows)
-Output: coursera_reviews_sample.csv         (adds a clean_review column)
+Input : coursera_reviews_sampled.csv  (raw reviews, 9000 rows)
+Output: coursera_reviews_sampled_text_preprocessed.csv         (adds a clean_review column)
 
 Steps applied, in order, and WHY each one is there:
 1. Lowercase              -> "Great" and "great" should be treated as the same word
@@ -24,12 +24,37 @@ Steps applied, in order, and WHY each one is there:
 """
 
 import re
-import pandas as pd
-import nltk
+from pathlib import Path
 
-# ---- point nltk at a local data folder instead of downloading at runtime ----
-# (stopwords, wordnet, omw-1.4, punkt, punkt_tab were fetched once and unzipped here)
-nltk.data.path.insert(0, "./nltk_data")
+import nltk
+import pandas as pd
+
+# Keep the script independent of the caller's current working directory.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = PROJECT_ROOT / "data"
+NLTK_DATA_DIR = Path.home() / ".cache" / "coursesense" / "nltk_data"
+NLTK_DATA_DIR.mkdir(parents=True, exist_ok=True)
+nltk.data.path.insert(0, str(NLTK_DATA_DIR))
+
+
+def ensure_nltk_resources() -> None:
+    """Download the small NLTK resource set once, if it is not available."""
+    resources = {
+        "corpora/stopwords": "stopwords",
+        "corpora/wordnet": "wordnet",
+        "corpora/omw-1.4": "omw-1.4",
+        "tokenizers/punkt": "punkt",
+        "tokenizers/punkt_tab": "punkt_tab",
+    }
+    for resource_path, package_name in resources.items():
+        try:
+            nltk.data.find(resource_path)
+        except LookupError:
+            if not nltk.download(package_name, download_dir=str(NLTK_DATA_DIR), quiet=True):
+                raise RuntimeError(f"Could not download the NLTK resource: {package_name}")
+
+
+ensure_nltk_resources()
 
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
@@ -71,7 +96,9 @@ def clean_text(text: str) -> str:
 
 
 def main():
-    df = pd.read_csv("coursera_reviews_sample_BEFORE.csv")
+    input_path = DATA_DIR / "coursera_reviews_sampled.csv"
+    output_path = DATA_DIR / "coursera_reviews_sampled_text_preprocessed.csv"
+    df = pd.read_csv(input_path)
 
     # Apply the cleaning function to every review
     df["clean_review"] = df["review"].apply(clean_text)
@@ -84,8 +111,8 @@ def main():
     df = df[df["clean_word_count"] > 0].reset_index(drop=True)
     print(f"Dropped {before - len(df)} rows that became empty after cleaning")
 
-    df.to_csv("coursera_reviews_sample.csv", index=False)
-    print(f"Saved {len(df)} cleaned rows -> coursera_reviews_sample.csv")
+    df.to_csv(output_path, index=False)
+    print(f"Saved {len(df)} cleaned rows -> {output_path}")
 
     # Show a few before/after examples
     print("\nSample before -> after:")
