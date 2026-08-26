@@ -1,5 +1,5 @@
 # CourseSense 🎓
-### Sentiment-Aware Course Review Classification with Classical ML + GRU
+### Sentiment-Based Course Review Classification & Recommendation with Classical ML + GRU
 
 CourseSense analyzes real Coursera course reviews to classify learner sentiment (Negative / Neutral / Positive), compares classical machine learning models against a GRU-based deep learning model, and surfaces the results in an interactive dashboard — with an eye toward powering personalized course recommendations based on predicted learner sentiment.
 
