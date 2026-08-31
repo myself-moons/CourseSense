@@ -419,9 +419,15 @@ def render_model_working_tab():
         "This section explains the end-to-end workflow used by the GRU model in the project files [src/gru_training.py](src/gru_training.py) and [src/gru_recommender.py](src/gru_recommender.py). The goal is to keep it simple: the model learns from a student’s recent activity and then predicts which skill is the best next practice target."
     )
 
-    st.subheader("1) Data preparation")
+    st.subheader("1) Data preparation and preprocessing")
     st.markdown(
-        "The project starts with student interaction data in the CSV and sequence files. Each student has a sequence of events like: what skill was attempted, whether it was correct or incorrect, and other timing-based features.\n\n"
+        "The project starts with student interaction data in the CSV and sequence files. Before modeling, the preprocessing script in [src/preproessing.py](src/preproessing.py) downloads the raw ASSISTments data, samples it down to a manageable student-sequence dataset, and keeps each student’s full interaction history intact.\n\n"
+        "This stage does important cleanup work:\n"
+        "- keeps only the columns needed for sequential modeling\n"
+        "- samples whole students rather than random rows, so the GRU sees realistic timelines\n"
+        "- saves a BEFORE file with the raw sampled dataset\n"
+        "- cleans the `skill_name` text by lowercasing, removing punctuation, removing stop words, and lemmatizing the words\n"
+        "- saves an AFTER file with a new `clean_skill_name` field for downstream analysis\n\n"
         "From this, the system builds:\n"
         "- a sequence of skills the student has seen\n"
         "- whether each answer was correct or incorrect\n"

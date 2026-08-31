@@ -19,9 +19,23 @@ The app supports two recommendation strategies:
 - GRU recommendation logic in `src/recommend.py`
 - Training and modeling workflow in `src/gru_training.py`
 - A reusable recommender prototype in `src/gru_recommender.py`
+- Preprocessing and dataset cleaning logic in `src/preproessing.py`
 - EDA plotting utilities in `src/eda_utils.py`
 - Dataset/visualization helpers in `src/charts.py`
 - Saved model and data artifacts under `models/` and `data/`
+
+## Data preprocessing pipeline
+
+The preprocessing step in `src/preproessing.py` is a critical part of the project. It does the following:
+
+1. Downloads the raw ASSISTments dataset.
+2. Keeps only the columns needed for sequence modeling.
+3. Samples whole student sequences instead of random rows so the GRU keeps realistic student timelines.
+4. Saves the raw sampled dataset as the BEFORE file.
+5. Cleans the skill text by normalizing names, removing punctuation, dropping stop words, and lemmatizing the remaining words.
+6. Saves the cleaned result as the AFTER file with a `clean_skill_name` column.
+
+This preprocessing step makes the later exploratory analysis and recommendation modeling more stable and interpretable.
 
 ## How the model works
 
