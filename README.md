@@ -1,83 +1,107 @@
-# CourseSense 🎓
-### Sentiment-Based Course Review Classification & Recommendation with Classical ML + GRU
+# CourseSense
 
-CourseSense analyzes real Coursera course reviews to classify learner sentiment (Negative / Neutral / Positive), compares classical machine learning models against a GRU-based deep learning model, and surfaces the results in an interactive dashboard — with an eye toward powering personalized course recommendations based on predicted learner sentiment.
+CourseSense is a Streamlit dashboard for a personalized learning recommendation project built around a GRU-based knowledge-tracing model. It helps answer a practical question: given a student’s recent learning history, which skill should they practice next?
 
----
+This project is fully grounded in the repository’s actual artifacts: engineered student data, sequence files, model weights, EDA outputs, and baseline comparison results. The app is designed to show the model, the data, the visual analysis, and the recommendation logic in one place.
 
-## 📌 Project Overview
+## Project goal
 
-Online learning platforms generate huge volumes of free-text feedback that's hard to act on manually. This project builds an end-to-end NLP pipeline that:
+The core idea is to estimate the probability that a student answers a math skill correctly, based on their recent interaction history, and then recommend the next best skill to practice.
 
-1. Cleans and prepares raw student course reviews
-2. Engineers text features using classical (BoW/TF-IDF) and embedding-based (Word2Vec) methods
-3. Trains and compares multiple classifiers, with a **GRU (Gated Recurrent Unit) neural network** as the primary sequential model
-4. Evaluates all models on standard classification metrics
-5. Presents everything — data, models, results — in an interactive Power BI dashboard
+The app supports two recommendation strategies:
 
-The end goal: a model that can flag negative learner sentiment early and support course recommendation/improvement decisions.
+- Remediation: target the student’s weakest skills
+- ZPD: target a challenging but achievable skill, roughly around a 60% predicted success rate
 
----
+## What the project includes
 
-## 📂 Dataset
+- A Streamlit dashboard in `app.py`
+- GRU recommendation logic in `src/recommend.py`
+- Training and modeling workflow in `src/gru_training.py`
+- A reusable recommender prototype in `src/gru_recommender.py`
+- EDA plotting utilities in `src/eda_utils.py`
+- Dataset/visualization helpers in `src/charts.py`
+- Saved model and data artifacts under `models/` and `data/`
 
-- **Source:** [Coursera Course Reviews](https://github.com/sharmaroshan/Coursera-Reviews-Analysis) (`reviews.csv`) — scraped course reviews with 1–5 star ratings
-- **Original size:** 107,018 reviews
-- **Working sample:** 9,000 reviews, stratified and class-balanced (3,000 each of Negative / Neutral / Positive), sampled from reviews with 3+ words, to keep training fast and metrics meaningful across all three classes rather than skewed toward the dominant 5-star class
-- **Labels:** Star rating (1–5) mapped to 3-class sentiment:
-  - 1–2★ → **Negative**
-  - 3★ → **Neutral**
-  - 4–5★ → **Positive**
+## How the model works
 
----
+1. Student interaction data is loaded from the engineered feature table and sequence arrays.
+2. The model tracks each student’s recent learning history over time.
+3. A GRU processes that sequence and combines it with side features such as:
+   - previous success/failure counts
+   - rolling accuracy
+   - skill difficulty
+   - response time features
+4. The model outputs a probability of correctness for the next interaction.
+5. The recommender creates a “what-if” version for each candidate skill and asks the model, “If this student tries skill X next, how likely are they to succeed?”
+6. The app ranks skills according to the selected strategy and displays the top recommendations.
 
-## 🗺️ Project Roadmap
+## Repository structure
 
-- [x] **Dataset sourcing & sampling** — pulled full dataset, explored class distribution, built a balanced 9,000-review sample
-- [x] **Text preprocessing** — lowercasing, URL/punctuation removal, tokenization, stopword removal, lemmatization
-- [ ] **Exploratory Data Analysis** — rating/sentiment distribution, review length patterns, word frequency by class
-- [ ] **Feature engineering** — CountVectorizer / TF-IDF for classical models, Word2Vec / trainable embeddings for the GRU
-- [ ] **Classical model development** — at least 3 of: Naïve Bayes, Logistic Regression, Decision Tree, Random Forest, SVM, XGBoost
-- [ ] **GRU model development** — Embedding → GRU → Dense classifier over sentiment classes
-- [ ] **Model evaluation & comparison** — Accuracy, Precision, Recall, F1-score, Confusion Matrix, ROC curve
-- [ ] **Analytical dashboard (Power BI)** — dataset overview, key stats, interactive charts, word cloud, sentiment distribution, model comparison, conclusion
-
----
-
-## 🧰 Tech Stack
-
-- **Language:** Python 3
-- **NLP:** NLTK (tokenization, stopwords, lemmatization), scikit-learn (CountVectorizer, TF-IDF), Gensim (Word2Vec)
-- **Modeling:** scikit-learn (Naïve Bayes, Logistic Regression, Random Forest, SVM), XGBoost, TensorFlow/Keras (GRU)
-- **Dashboard:** Power BI
-
----
-
-## 📁 Repository Structure
-
-```
-coursesense/
+```text
+CourseSense/
+├── app.py
+├── README.md
+├── requirements.txt
 ├── data/
-│   ├── coursera_reviews_sample_BEFORE.csv   # raw sampled reviews (9,000 rows)
-│   └── coursera_reviews_sample.csv          # cleaned/preprocessed reviews
-├── preprocessing/
-│   └── text_preprocessing.py                # text cleaning pipeline
-├── notebooks/                               # EDA, feature engineering, model training (in progress)
-├── dashboard/                               # Power BI file (in progress)
-└── README.md
+│   ├── assistments_sample_AFTER.csv
+│   ├── assistments_sample_BEFORE.csv
+│   ├── engineered_features.csv
+│   ├── gru_sequences.npz
+│   ├── skill_vocab.json
+│   ├── final_gru_results.json
+│   └── baseline_results.json
+├── models/
+│   └── best_gru_model.keras
+├── src/
+│   ├── __init__.py
+│   ├── charts.py
+│   ├── eda.py
+│   ├── eda_utils.py
+│   ├── gru_recommender.py
+│   ├── gru_training.py
+│   ├── recommend.py
+│   └── __pycache__/
+└── .venv/
 ```
 
----
+## Dashboard features
 
-## 📊 Planned Conclusion Highlights
+The app currently includes:
 
-- **Key findings:** patterns in what drives negative vs. positive course feedback, model performance comparison, whether GRU meaningfully outperforms classical baselines on this data
-- **Challenges faced:** natural class imbalance in the raw data (91% positive reviews), short/noisy review text, tuning a sequence model on a modest dataset size
-- **Future scope:** extending to multi-class star-rating prediction, incorporating course metadata, testing transformer-based models (BERT) as a stretch goal
-- **Applications:** automated flagging of at-risk courses, sentiment-informed course recommendations, instructor feedback triage at scale
+- Overview summary with project metrics
+- Dataset explorer
+- EDA Results visualizations
+- Model Performance section with saved GRU metrics and baseline comparisons
+- Recommendation engine with strategy selection
+- Model Working explanation section
+- Conclusion summary
 
----
+## Local setup
 
-## ⏱️ Status
+```bash
+cd /workspaces/CourseSense
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+streamlit run app.py
+```
 
-Work in progress — dataset and preprocessing complete, modeling and dashboard stages underway.
+## Run the app
+
+```bash
+cd /workspaces/CourseSense
+source .venv/bin/activate
+streamlit run app.py
+```
+
+## Notes
+
+- The dashboard reads the project artifacts directly from `data/` and `models/`.
+- If a metric file or model artifact is missing, the app warns gracefully instead of crashing.
+- The recommendation logic filters out very rare skills so the model is not forced to rank poorly supported items.
+- The project is data-backed and avoids inventing unsupported results or metrics.
+
+## Project status
+
+This project is complete as a working, data-backed demo and dashboard for personalized learning recommendations using a GRU-based model.

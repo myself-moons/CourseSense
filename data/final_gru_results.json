@@ -1,0 +1,62 @@
+{
+  "best_hyperparameters": {
+    "embed_dim": 32,
+    "gru_units": 48,
+    "dropout": 0.100819022070179,
+    "l2reg": 0.0007689178899002101,
+    "lr": 0.00466851730856359
+  },
+  "cv_accuracy": 0.8706713941782249,
+  "train": {
+    "accuracy": 0.9003,
+    "precision": 0.8856,
+    "recall": 0.9605,
+    "f1": 0.9216,
+    "roc_auc": 0.9588,
+    "confusion_matrix": [
+      [
+        3031,
+        729
+      ],
+      [
+        232,
+        5645
+      ]
+    ]
+  },
+  "validation": {
+    "accuracy": 0.885,
+    "precision": 0.8685,
+    "recall": 0.9629,
+    "f1": 0.9133,
+    "roc_auc": 0.9434,
+    "confusion_matrix": [
+      [
+        539,
+        177
+      ],
+      [
+        45,
+        1169
+      ]
+    ]
+  },
+  "test": {
+    "accuracy": 0.8804,
+    "precision": 0.8675,
+    "recall": 0.9513,
+    "f1": 0.9074,
+    "roc_auc": 0.9385,
+    "confusion_matrix": [
+      [
+        1027,
+        313
+      ],
+      [
+        105,
+        2049
+      ]
+    ]
+  },
+  "train_test_accuracy_gap": 0.0199
+}
