@@ -18,6 +18,7 @@ from src.eda_utils import (
     plot_attempt_and_hint_usage,
     plot_learning_curve,
     plot_skill_difficulty,
+    plot_skill_word_cloud,
     plot_student_sequence_length_distribution,
     plot_target_distribution,
     plot_top_skills as plot_eda_top_skills,
@@ -136,11 +137,12 @@ def render_overview_tab():
     col4.metric("Test accuracy", f"{test_accuracy:.3f}" if test_accuracy is not None else "N/A")
     st.metric("Test ROC-AUC", f"{test_roc_auc:.3f}" if test_roc_auc is not None else "N/A")
 
-    st.subheader("AFTER dataset preview")
+    st.subheader("Dataset overview")
+    st.caption("This project is a student-learning prediction dashboard, so the relevant class structure is the distribution of correct versus incorrect responses, rather than sentiment labels.")
     after_path = DATA_DIR / "assistments_sample_AFTER.csv"
     if after_path.exists():
         preview_df = pd.read_csv(after_path).head(8)
-        st.dataframe(preview_df, use_container_width=False)
+        st.dataframe(preview_df, width="content")
         st.caption("This is a preview of the cleaned AFTER dataset used for the EDA and skill-analysis steps.")
     else:
         st.info("The AFTER dataset preview is not available in the data folder yet.")
@@ -206,6 +208,12 @@ def render_eda_results_tab():
     )
 
     render_chart_with_explainer(
+        "Skill vocabulary cloud",
+        plot_skill_word_cloud(df, n=20),
+        "This word-cloud style view summarizes the most common cleaned skill terms in the dataset. It is useful for a quick sanity check on the vocabulary and for understanding the dominant learning topics in the sequence data.",
+    )
+
+    render_chart_with_explainer(
         "Skill difficulty",
         plot_skill_difficulty(df, min_attempts=100),
         "This compares the average success rate of different skills. Skills with lower correctness rates are usually harder, while those with higher rates are easier for students to master.",
@@ -259,7 +267,7 @@ def render_model_performance_tab():
 
     metric_df = pd.DataFrame(metric_rows)
     if not metric_df.empty:
-        st.dataframe(metric_df, use_container_width=True)
+        st.dataframe(metric_df, width="stretch")
 
     st.subheader("Confusion matrices")
     for split_name in split_order:
@@ -313,7 +321,7 @@ def render_model_performance_tab():
                     for model_name, metrics in baseline_map.items()
                 ]
             ).sort_values("Accuracy", ascending=False)
-            st.dataframe(baseline_df, use_container_width=True)
+            st.dataframe(baseline_df, width="stretch")
 
             chart_df = baseline_df.set_index("Model")[["Accuracy", "F1", "ROC-AUC"]].copy()
             left, mid, right = st.columns([1, 6, 1])
@@ -391,7 +399,7 @@ def render_recommender_tab():
             st.info("No skills met the minimum occurrence threshold for a recommendation.")
         else:
             st.subheader("Recommended skills")
-            st.dataframe(results, use_container_width=False)
+            st.dataframe(results, width="content")
 
             top_skill = results.iloc[0]
             top_prob = float(top_skill["predicted_success_prob"])

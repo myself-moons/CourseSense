@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 
@@ -69,6 +70,37 @@ def plot_learning_curve(df: pd.DataFrame):
     ax.set_ylabel("Correctness rate")
     ax.set_ylim(0, 1)
     ax.grid(alpha=0.3)
+    fig.tight_layout()
+    return fig
+
+
+def plot_skill_word_cloud(df: pd.DataFrame, n: int = 20):
+    if "clean_skill_name" not in df.columns:
+        return None
+
+    words = []
+    for raw_name in df["clean_skill_name"].dropna().astype(str):
+        words.extend([token.strip() for token in raw_name.split() if token.strip()])
+    if not words:
+        return None
+
+    word_counts = pd.Series(words).value_counts().head(n)
+    if word_counts.empty:
+        return None
+
+    rng = np.random.default_rng(42)
+    fig, ax = plt.subplots(figsize=(9, 6))
+    positions = rng.uniform(0, 1, size=(len(word_counts), 2))
+    sizes = np.linspace(18, 52, len(word_counts))
+    colors = plt.cm.viridis(np.linspace(0.15, 0.95, len(word_counts)))
+
+    for (x, y), size, color, (word, freq) in zip(positions, sizes, colors, word_counts.items()):
+        ax.text(x, y, word, fontsize=size, color=color, ha="center", va="center", alpha=0.8)
+
+    ax.set_title("Skill vocabulary cloud")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_axis_off()
     fig.tight_layout()
     return fig
 

@@ -1,0 +1,232 @@
+CourseSense – Mini Project Documentation
+
+1. Project Title
+CourseSense: Student Skill Prediction and Personalized Recommendation System
+
+2. Problem Statement
+This project focuses on predicting whether a student will answer a given math skill correctly based on their prior interaction history, and then recommending the next skill they should practice. The problem is framed as a sequential learning problem in which each student has a history of interactions involving skills, correctness outcomes, and timing-related features.
+
+The goal is to build a model that can:
+- predict the probability of success on a future skill attempt,
+- identify weak learning areas for remediation,
+- suggest a next-best learning target using a personalized recommendation strategy.
+
+This is useful in educational technology, where adaptive practice systems can support students by recommending tasks they are likely to learn from.
+
+3. Dataset
+The project uses the ASSISTments-style educational interaction dataset, sampled and cleaned for sequential modeling.
+
+Dataset source:
+- Original dataset source: ASSISTments / public educational interaction data
+- Example reference: https://raw.githubusercontent.com/GaoSida/DKT/master/Assistments/skill_builder_data.csv
+- Project data files are stored locally in the data/ folder.
+
+The following project files are used:
+- data/assistments_sample_AFTER.csv
+- data/engineered_features.csv
+- data/gru_sequences.npz
+- data/final_gru_results.json
+- data/baseline_results.json
+
+4. Project Objective
+To design and evaluate a model that can:
+- analyze the sequence of a student’s prior skill attempts,
+- predict whether the next attempt will be correct,
+- recommend the next skill to practice based on the student’s current learning profile.
+
+5. Dataset Overview
+The dataset contains student interaction records with fields such as:
+- user_id
+- skill_id / skill_name
+- correct
+- order_id
+- assignment_id
+- ms_first_response
+- overlap_time
+- attempt_count / hint_count (used for analysis and excluded from final prediction features where needed)
+
+The pipeline includes:
+- dataset sampling by whole students to preserve realistic learning sequences,
+- skill text cleaning and normalization,
+- feature engineering for historical behavior and skill difficulty,
+- sequence modeling with a GRU,
+- recommendation generation with remediation and ZPD strategies.
+
+6. Text Preprocessing and NLP-related Steps
+Although the project is primarily a sequential educational prediction system, it includes text preprocessing on skill labels to normalize skill names.
+
+Preprocessing steps used:
+- lowercasing text
+- removing non-alphabetic characters
+- tokenization
+- stopword removal
+- lemmatization
+- conversion of raw skill names into clean_skill_name
+
+These steps help reduce redundancy among similar skill titles and create a cleaner vocabulary for downstream analysis and reporting.
+
+7. Feature Engineering
+The project uses several engineered features that are relevant to student learning behavior and model prediction.
+
+Core engineered features include:
+- opportunity
+- prior_success_count
+- prior_failure_count
+- student_rolling_accuracy
+- skill_difficulty
+- log_ms_first_response
+- log_overlap_time
+
+These features capture:
+- how often the student has seen a skill,
+- whether they have succeeded or failed previously,
+- how well they are generally performing recently,
+- how hard a skill is relative to the dataset,
+- response speed and timing signals.
+
+Feature engineering approach:
+- leave-one-out skill difficulty estimation,
+- cumulative student performance metrics,
+- sequence-based historical behavior signals,
+- exclusion of leakage-prone features such as hint/attempt counts in the final model setup.
+
+8. Machine Learning / Deep Learning Algorithms Used
+This project uses a recurrent neural network model for sequential learning.
+
+A. GRU (Gated Recurrent Unit)
+- used to model the temporal order of student actions,
+- captures dependencies across prior attempts,
+- suitable for sequential educational data where context matters.
+
+B. Binary classification head
+- final output is a probability that the next attempt will be correct,
+- uses sigmoid activation for binary classification.
+
+C. Recommendation logic
+- candidate skills are evaluated using a hypothetical next-step simulation,
+- predicted success probabilities are ranked to provide recommendations.
+
+Recommendation strategies:
+- Remediation: prioritizes weaker skill areas for improvement
+- ZPD: prioritizes skills near a challenging but achievable success rate (around 60%)
+
+D. Baseline comparison models
+The project also includes baseline comparisons using classical models such as:
+- Naive Bayes
+- Logistic Regression
+- Random Forest
+- XGBoost
+
+These are used for comparison with the GRU-based approach.
+
+9. Model Evaluation Metrics
+The project evaluates the model using standard classification metrics:
+- Accuracy
+- Precision
+- Recall
+- F1-score
+- Confusion matrix
+- ROC-AUC
+
+The model is evaluated on held-out student sequences to avoid leakage across student histories.
+
+10. Results and Observations
+The system outputs several key model results:
+- overall performance metrics on train/validation/test splits,
+- confusion matrices by split,
+- optimization history from hyperparameter tuning,
+- recommendation table showing ranked skills for each student,
+- charts for dataset distribution and skill difficulty.
+
+Key findings:
+- GRU-based sequence modeling effectively captures student learning patterns.
+- Performance is strongest when historical behavior and skill difficulty are combined.
+- Skill frequency affects recommendation quality, and rare skills are filtered to avoid unstable estimates.
+- A student’s recent attempts and difficulty profile are stronger signals than raw surface-level labels alone.
+
+11. Analysis of Graphs and Outputs
+The dashboard includes and explains visual outputs such as:
+- correct vs incorrect response distribution,
+- interactions per student,
+- top skills by frequency,
+- skill difficulty spread,
+- student sequence length distribution,
+- learning curve by opportunity number,
+- attempt and hint usage,
+- recommendation tables,
+- model metrics comparison charts,
+- optimization history.
+
+These visuals support understanding of dataset balance, student behavior, skill difficulty, and model performance.
+
+12. Challenges Faced
+- class imbalance in educational interaction data,
+- limited sample size for some skills,
+- preserving sequence integrity while splitting data by student,
+- avoiding leakage from feature engineering,
+- handling rare skills and unstable difficulty estimates,
+- balancing remediation and challenge-based recommendation strategies.
+
+13. Future Scope
+- improve recommendation through multi-skill or curriculum-aware routing,
+- add deeper personalization using confidence intervals and uncertainty estimates,
+- expand the model to larger educational datasets,
+- compare more modern sequence models, such as transformers or attention-based architectures,
+- deploy this in a real classroom or adaptive practice environment.
+
+14. Applications
+- personalized skill recommendations for students,
+- remediation of weak learning areas,
+- adaptive tutoring and digital learning assistants,
+- teacher dashboards for early intervention,
+- identifying at-risk students through learning-pattern analysis.
+
+15. Analytical Dashboard
+The project includes a Streamlit dashboard with:
+- project title,
+- dataset overview,
+- key statistics,
+- chart-based visual analysis,
+- skill vocabulary cloud,
+- model comparison,
+- recommendation outputs,
+- conclusion summary.
+
+The dashboard helps present findings clearly and makes the project easier to interpret for non-technical audiences.
+
+16. Conclusion
+CourseSense demonstrates how sequential educational data can be used to predict student performance and recommend the next best skill to practice. The combination of feature engineering, GRU modeling, and recommendation ranking provides a practical and useful foundation for adaptive learning systems.
+
+The project shows that learning analytics can be translated into a useful, explainable recommendation system with clear educational value.
+
+17. Submission Notes
+This project is suitable for a mini-project submission as it combines:
+- data analysis,
+- NLP/text normalization for skill labels,
+- feature engineering,
+- deep learning model development,
+- evaluation metrics,
+- dashboards for interpretation,
+- practical educational use case.
+
+18. Project status
+This assignment has been implemented in the CourseSense repository and is supported by:
+- app.py for the Streamlit dashboard,
+- src/ for data analysis, charts, and recommendation logic,
+- data/ for processed dataset artifacts,
+- Final_Model.ipynb for the full model workflow reference.
+
+19. Partner / Team Information
+This project is completed as a pair-based NLP mini-project, as required by the assignment instructions.
+
+20. Front Page Format Summary
+For the handwritten pink paper front page, include:
+- Name:
+- Roll No:
+- Div:
+- Class:
+- Topic:
+
+The title should be positioned at the top-right corner of the pink front sheet, and the paper should be light pink in color with a blue ribbon binding as specified.
+
+End of Project Documentation
