@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -34,6 +35,11 @@ def _load_sequence_data() -> Dict[str, np.ndarray]:
         return {key: data[key] for key in data.files}
 
 
+def _load_skill_vocab() -> Dict[str, int]:
+    with open(_root_dir() / "data" / "skill_vocab.json") as f:
+        return json.load(f)
+
+
 def _sorted_student_ids(features_df: pd.DataFrame) -> np.ndarray:
     return np.sort(features_df["user_id"].dropna().unique())
 
@@ -65,6 +71,8 @@ def _student_history_for_index(student_idx: int, sequence_data: Dict[str, np.nda
 
 
 def _summarize_student_skill_history(skill_history: np.ndarray, correct_history: np.ndarray) -> Dict[int, Dict[str, int]]:
+    """Keys here are skill_idx (0-92, the SAME space as skill_arr/skill_vocab.json) —
+    this must stay consistent with whatever ID space candidate skills are looked up in."""
     stats: Dict[int, Dict[str, int]] = {}
     for skill_id, is_correct in zip(skill_history.tolist(), correct_history.tolist()):
         if int(skill_id) < 0:
@@ -80,19 +88,19 @@ def _summarize_student_skill_history(skill_history: np.ndarray, correct_history:
 
 
 def _candidate_skill_row(
-    skill_id: int,
+    skill_idx: int,
     student_skill_stats: Dict[int, Dict[str, int]],
     student_rows: pd.DataFrame,
     skill_difficulty_lookup: pd.Series,
 ) -> np.ndarray:
-    prior_success = int(student_skill_stats.get(skill_id, {}).get("success", 0))
-    prior_failure = int(student_skill_stats.get(skill_id, {}).get("failure", 0))
-    opportunity = int(student_skill_stats.get(skill_id, {}).get("opportunity", 0)) + 1
+    prior_success = int(student_skill_stats.get(skill_idx, {}).get("success", 0))
+    prior_failure = int(student_skill_stats.get(skill_idx, {}).get("failure", 0))
+    opportunity = int(student_skill_stats.get(skill_idx, {}).get("opportunity", 0)) + 1
 
     student_rolling_accuracy = float(student_rows["student_rolling_accuracy"].iloc[-1]) if not student_rows.empty else 0.0
     mean_log_ms = float(student_rows["log_ms_first_response"].mean()) if not student_rows.empty else 0.0
     mean_log_overlap = float(student_rows["log_overlap_time"].mean()) if not student_rows.empty else 0.0
-    skill_difficulty = float(skill_difficulty_lookup.get(skill_id, 0.0))
+    skill_difficulty = float(skill_difficulty_lookup.get(skill_idx, 0.0))
 
     return np.array(
         [
@@ -108,28 +116,17 @@ def _candidate_skill_row(
     )
 
 
-def _skill_names_for_ids(features_df: pd.DataFrame, skill_ids: List[int]) -> List[str]:
-    if not skill_ids:
-        return []
-    names: List[str] = []
-    skill_lookup = pd.to_numeric(features_df["skill_id"], errors="coerce").astype(float)
-    for skill_id in sorted(set(int(v) for v in skill_ids)):
-        matches = features_df[skill_lookup == float(skill_id)]
-        if not matches.empty:
-            names.append(str(matches["skill_name"].iloc[0]))
-    return names
-
-
 def _build_hypothetical_sequence(
     student_idx: int,
-    skill_id: int,
+    skill_idx: int,
     features_df: pd.DataFrame,
     sequence_data: Dict[str, np.ndarray],
     student_skill_stats: Dict[int, Dict[str, int]],
     skill_difficulty_lookup: pd.Series,
+    sorted_student_ids: np.ndarray,
 ):
     seq_len = int(sequence_data["seq_lengths"][student_idx])
-    student_user_id = int(_sorted_student_ids(features_df)[student_idx])
+    student_user_id = int(sorted_student_ids[student_idx])
     student_rows = features_df[features_df["user_id"] == student_user_id].sort_values("order_id").reset_index(drop=True)
 
     interaction_seq = np.full((MAX_LEN,), PAD_TOKEN, dtype=np.int32)
@@ -144,7 +141,7 @@ def _build_hypothetical_sequence(
     else:
         interaction_seq[0] = START_TOKEN
 
-    side_features[min(seq_len, MAX_LEN - 1)] = _candidate_skill_row(skill_id, student_skill_stats, student_rows, skill_difficulty_lookup)
+    side_features[min(seq_len, MAX_LEN - 1)] = _candidate_skill_row(skill_idx, student_skill_stats, student_rows, skill_difficulty_lookup)
     return interaction_seq, side_features
 
 
@@ -158,6 +155,8 @@ def _sort_candidate_skills(candidate_records: List[Dict[str, Any]], strategy: st
 def recommend_next_skills(student_row_idx_or_user_id, top_k, strategy):
     features_df = _load_engineered_features()
     sequence_data = _load_sequence_data()
+    skill_to_idx = _load_skill_vocab()          # clean_skill_name -> 0..92 (the model's actual vocabulary)
+    idx_to_skill = {v: k for k, v in skill_to_idx.items()}
 
     try:
         import tensorflow as tf
@@ -169,34 +168,40 @@ def recommend_next_skills(student_row_idx_or_user_id, top_k, strategy):
     sorted_student_ids = _sorted_student_ids(features_df)
     student_idx = _resolve_student_index(student_row_idx_or_user_id, sorted_student_ids)
     history = _student_history_for_index(student_idx, sequence_data)
+    # skill_arr already stores skill_idx (0-92) — this is consistent with skill_vocab.json by construction
     student_skill_stats = _summarize_student_skill_history(history["skill"], history["correct"])
 
-    skill_counts = pd.to_numeric(features_df["skill_id"], errors="coerce").dropna().astype(int).value_counts().sort_index()
-    candidate_skill_ids = [int(skill_id) for skill_id, count in skill_counts.items() if int(count) >= MIN_SKILL_OCCURRENCES]
-    excluded_skill_ids = [int(skill_id) for skill_id, count in skill_counts.items() if int(count) < MIN_SKILL_OCCURRENCES]
+    # Candidate pool and occurrence filtering, all in the SAME 0-92 space as the model
+    features_df["_skill_idx"] = features_df["clean_skill_name"].map(skill_to_idx)
+    skill_counts = features_df["_skill_idx"].value_counts().sort_index()
+    candidate_skill_indices = [int(s) for s, count in skill_counts.items() if int(count) >= MIN_SKILL_OCCURRENCES]
+    excluded_skill_indices = [int(s) for s, count in skill_counts.items() if int(count) < MIN_SKILL_OCCURRENCES]
+    excluded_skill_names = [idx_to_skill[s] for s in excluded_skill_indices]
 
-    if not candidate_skill_ids:
-        empty_df = pd.DataFrame(columns=["rank", "skill_id", "skill_name", "predicted_success_prob", "opportunity", "prior_success_count", "prior_failure_count"])
-        return empty_df, _skill_names_for_ids(features_df, excluded_skill_ids)
+    if not candidate_skill_indices:
+        empty_df = pd.DataFrame(columns=["rank", "skill_idx", "skill_name", "predicted_success_prob", "opportunity", "prior_success_count", "prior_failure_count"])
+        return empty_df, excluded_skill_names
 
-    skill_difficulty_lookup = features_df.assign(skill_id=pd.to_numeric(features_df["skill_id"], errors="coerce")).groupby("skill_id")["skill_difficulty"].mean()
+    # skill_difficulty already lives in engineered_features.csv, keyed by clean_skill_name/_skill_idx
+    skill_difficulty_lookup = features_df.groupby("_skill_idx")["skill_difficulty"].mean()
 
     batched_interactions = []
     batched_side_features = []
     candidate_records = []
 
-    for skill_id in candidate_skill_ids:
+    for skill_idx in candidate_skill_indices:
         interaction_seq, side_features = _build_hypothetical_sequence(
             student_idx=student_idx,
-            skill_id=skill_id,
+            skill_idx=skill_idx,
             features_df=features_df,
             sequence_data=sequence_data,
             student_skill_stats=student_skill_stats,
             skill_difficulty_lookup=skill_difficulty_lookup,
+            sorted_student_ids=sorted_student_ids,
         )
         batched_interactions.append(interaction_seq)
         batched_side_features.append(side_features)
-        candidate_records.append({"skill_id": int(skill_id)})
+        candidate_records.append({"skill_idx": int(skill_idx)})
 
     batched_interactions = np.stack(batched_interactions, axis=0)
     batched_side_features = np.stack(batched_side_features, axis=0)
@@ -214,14 +219,14 @@ def recommend_next_skills(student_row_idx_or_user_id, top_k, strategy):
     else:
         probs = np.asarray(predictions).reshape(-1)
 
-    for idx, skill_id in enumerate(candidate_skill_ids):
+    for idx, skill_idx in enumerate(candidate_skill_indices):
         candidate_records[idx].update(
             {
-                "skill_name": _skill_names_for_ids(features_df, [skill_id])[0],
+                "skill_name": idx_to_skill[skill_idx],
                 "predicted_success_prob": float(probs[idx]),
-                "opportunity": int(student_skill_stats.get(skill_id, {}).get("opportunity", 0)) + 1,
-                "prior_success_count": int(student_skill_stats.get(skill_id, {}).get("success", 0)),
-                "prior_failure_count": int(student_skill_stats.get(skill_id, {}).get("failure", 0)),
+                "opportunity": int(student_skill_stats.get(skill_idx, {}).get("opportunity", 0)) + 1,
+                "prior_success_count": int(student_skill_stats.get(skill_idx, {}).get("success", 0)),
+                "prior_failure_count": int(student_skill_stats.get(skill_idx, {}).get("failure", 0)),
             }
         )
 
@@ -230,8 +235,8 @@ def recommend_next_skills(student_row_idx_or_user_id, top_k, strategy):
 
     result_df = pd.DataFrame(top_candidates)
     if not result_df.empty:
-        result_df = result_df[["skill_id", "skill_name", "predicted_success_prob", "opportunity", "prior_success_count", "prior_failure_count"]].copy()
+        result_df = result_df[["skill_idx", "skill_name", "predicted_success_prob", "opportunity", "prior_success_count", "prior_failure_count"]].copy()
         result_df.insert(0, "rank", range(1, len(result_df) + 1))
         result_df["predicted_success_prob"] = result_df["predicted_success_prob"].round(4)
 
-    return result_df, _skill_names_for_ids(features_df, excluded_skill_ids)
+    return result_df, excluded_skill_names
